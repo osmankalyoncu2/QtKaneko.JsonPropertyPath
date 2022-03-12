@@ -65,7 +65,7 @@ public class JsonPropertyPathContainingConverter : JsonConverter<dynamic>
                                       .FirstOrDefault()
                                      ?.GetGenericArguments()[0];
             }
-            if (matchesType == null) throw new Exception($"JsonPath have matched multiple elements, but {member.DeclaringType}.{member.Name} can contain only one.");
+            if (valueType == null) throw new ArgumentOutOfRangeException($"JsonPath have matched multiple elements, but {member.DeclaringType}.{member.Name} can contain only one.");
 
             var values = matches.Select(match => match.Value.Deserialize(valueType, options))
                                 .ToArray();
