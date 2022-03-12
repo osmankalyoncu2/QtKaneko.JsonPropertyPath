@@ -52,14 +52,14 @@ public class JsonPropertyPathContainingConverter : JsonConverter<dynamic>
           {
             var arr = memberType.GetInterfaces();
 
-            Type matchesType;
+            Type valueType;
             if (memberType.IsGenericType && memberType.GetGenericTypeDefinition() == typeof(IEnumerable<>))
             {
-              matchesType = memberType.GetGenericArguments()[0];
+              valueType = memberType.GetGenericArguments()[0];
             }
             else
             {
-              matchesType = memberType.GetInterfaces()
+              valueType = memberType.GetInterfaces()
                                       .Where(@interface => @interface.IsGenericType
                                                         && @interface.GetGenericTypeDefinition() == typeof(IEnumerable<>))
                                       .FirstOrDefault()
@@ -67,11 +67,11 @@ public class JsonPropertyPathContainingConverter : JsonConverter<dynamic>
             }
             if (matchesType == null) throw new Exception($"JsonPath have matched multiple elements, but {member.DeclaringType}.{member.Name} can contain only one.");
 
-            var values = matches.Select(match => match.Value.Deserialize(matchesType, options))
+            var values = matches.Select(match => match.Value.Deserialize(valueType, options))
                                 .ToArray();
 
             // We need copy matches to type-matching container to avoid "object[] can't be converted to type[]"
-            var valueContainer = Array.CreateInstance(matchesType, matches.Count);
+            var valueContainer = Array.CreateInstance(valueType, matches.Count);
             values.CopyTo(valueContainer, 0);
 
             SetValue(member, obj, valueContainer);
