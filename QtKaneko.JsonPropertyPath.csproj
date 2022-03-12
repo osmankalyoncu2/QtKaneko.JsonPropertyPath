@@ -16,6 +16,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
+    <Version>1.1.0</Version>
     <Authors>Kaneko Qt</Authors>
     <Description>Ever wanted to map JSON property to .NET one with JSONPath?</Description>
     <Copyright>Copyright (c) QtKaneko 2022</Copyright>
