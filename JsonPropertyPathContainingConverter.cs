@@ -60,10 +60,10 @@ public class JsonPropertyPathContainingConverter : JsonConverter<dynamic>
             else
             {
               valueType = memberType.GetInterfaces()
-                                      .Where(@interface => @interface.IsGenericType
-                                                        && @interface.GetGenericTypeDefinition() == typeof(IEnumerable<>))
-                                      .FirstOrDefault()
-                                     ?.GetGenericArguments()[0];
+                                    .Where(@interface => @interface.IsGenericType
+                                                      && @interface.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+                                    .FirstOrDefault()
+                                    ?.GetGenericArguments()[0];
             }
             if (valueType == null) throw new ArgumentOutOfRangeException($"JsonPath have matched multiple elements, but {member.DeclaringType}.{member.Name} can contain only one.");
 
