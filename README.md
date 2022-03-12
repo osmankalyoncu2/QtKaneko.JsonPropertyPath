@@ -3,7 +3,7 @@
 ```cs
 using QtKaneko.JsonPropertyPath;
 
-// Example JS:
+// Example JSON:
 // {
 //   "obj1": {
 //     "obj2": {
@@ -33,7 +33,7 @@ var options = new JsonSerializerOptions()
 ## Features:
 - You can map multiple JSON properties to .NET one:
 ```cs
-// Example JS:
+// Example JSON:
 // {
 //   "obj1": {
 //     "obj2": {
