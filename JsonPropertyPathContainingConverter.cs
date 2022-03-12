@@ -102,7 +102,8 @@ public class JsonPropertyPathContainingConverter : JsonConverter<dynamic>
       return (member) switch
       {
         PropertyInfo property => property.PropertyType,
-        FieldInfo field => field.FieldType
+        FieldInfo field => field.FieldType,
+        _ => throw new NotImplementedException()
       };
     }
   }
