@@ -16,7 +16,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <Version>1.1.0</Version>
+    <Version>2.1.0</Version>
     <Authors>Kaneko Qt</Authors>
     <Description>Ever wanted to map JSON property to .NET one with JSONPath?</Description>
     <Copyright>Copyright (c) QtKaneko 2022</Copyright>
@@ -24,6 +24,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/qt-kaneko/QtKaneko.JsonPropertyPath.git</RepositoryUrl>
     <PackageTags>map json property jsonpath</PackageTags>
+    <PackageReleaseNotes>Added JsonConverter attribute support.</PackageReleaseNotes>
     <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
   </PropertyGroup>
 

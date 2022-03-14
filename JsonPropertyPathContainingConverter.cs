@@ -8,13 +8,16 @@
 
 using Json.Path;
 
+using QtKaneko.JsonPropertyPath.Helpers;
+
 using System.Reflection;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace QtKaneko.JsonPropertyPath;
 
-public class JsonPropertyPathContainingConverter : JsonConverter<dynamic>
+public class JsonPropertyPathContainingConverter : JsonConverter<object>
 {
   const BindingFlags _bindingFlags = BindingFlags.Public | BindingFlags.Instance;
 
@@ -27,91 +30,89 @@ public class JsonPropertyPathContainingConverter : JsonConverter<dynamic>
         || fields.Any(field => field.IsDefined(typeof(JsonPropertyPathAttribute)));
   }
 
-  public override dynamic Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+  public override object Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options)
   {
-    var jsonObj = JsonElement.ParseValue(ref reader);
-    var obj = Activator.CreateInstance(typeToConvert);
+    var json = JsonElement.ParseValue(ref reader);
+    var @object = Activator.CreateInstance(type);
 
-    foreach (var member in Enumerable.Concat<MemberInfo>(typeToConvert.GetProperties(_bindingFlags),
-                                                         typeToConvert.GetFields(_bindingFlags)))
+    foreach (var member in Enumerable.Concat<MemberInfo>(type.GetProperties(_bindingFlags),
+                                                         type.GetFields(_bindingFlags)))
     {
       if (member is FieldInfo && !options.IncludeFields && !member.IsDefined(typeof(JsonIncludeAttribute)))
         continue;
 
-      var memberType = GetType(member);
+      var memberType = member switch
+      {
+        PropertyInfo property => property.PropertyType,
+        FieldInfo field => field.FieldType
+      };
 
+      dynamic memberValue = default;
       if (member.GetCustomAttribute<JsonPropertyPathAttribute>() is { } attribute)
       {
-        if (JsonPath.Parse(attribute.Path).Evaluate(jsonObj).Matches is { } matches)
+        var matches = JsonPath.Parse(attribute.Path).Evaluate(json).Matches;
+
+        if (matches.Count == 1)
         {
-          if (matches.Count == 1)
+          memberValue = Deserialize(matches[0].Value, memberType, options,
+                                    member.GetCustomAttribute<JsonConverterAttribute>()?.ConverterType);
+        }
+        else if (matches.Count > 1)
+        {
+          if (!memberType.TryGetEnumerableElementType(out var elementType))
+            throw new ArgumentOutOfRangeException(member.Name,
+                                                  $"JsonPath have matched multiple elements, " +
+                                                  $"but {member.DeclaringType}.{member.Name} can contain only one.");
+
+          memberValue = Array.CreateInstance(elementType, matches.Count);
+          for (int matchIndex = 0; matchIndex < matches.Count; ++matchIndex)
           {
-            SetValue(member, obj, matches.First().Value.Deserialize(memberType));
-          }
-          else if (matches.Count > 1)
-          {
-            var arr = memberType.GetInterfaces();
+            var element = Deserialize(matches[matchIndex].Value, memberType, options,
+                                      member.GetCustomAttribute<JsonConverterAttribute>()?.ConverterType);
 
-            Type valueType;
-            if (memberType.IsGenericType && memberType.GetGenericTypeDefinition() == typeof(IEnumerable<>))
-            {
-              valueType = memberType.GetGenericArguments()[0];
-            }
-            else
-            {
-              valueType = memberType.GetInterfaces()
-                                    .Where(@interface => @interface.IsGenericType
-                                                      && @interface.GetGenericTypeDefinition() == typeof(IEnumerable<>))
-                                    .FirstOrDefault()
-                                    ?.GetGenericArguments()[0];
-            }
-            if (valueType == null)
-            {
-              throw new ArgumentOutOfRangeException(member.Name, $"JsonPath have matched multiple elements, but {member.DeclaringType}.{member.Name} can contain only one.");
-            }
-
-            var values = matches.Select(match => match.Value.Deserialize(valueType, options))
-                                .ToArray();
-
-            // We need copy matches to type-matching container to avoid "object[] can't be converted to type[]"
-            var valueContainer = Array.CreateInstance(valueType, matches.Count);
-            values.CopyTo(valueContainer, 0);
-
-            SetValue(member, obj, valueContainer);
+            memberValue.SetValue(element, matchIndex);
           }
         }
       }
       else
       {
-        if (jsonObj.TryGetProperty(options.PropertyNamingPolicy.ConvertName(member.Name), out var jsonProperty))
-        {
-          SetValue(member, obj, jsonProperty.Deserialize(memberType, options));
-        }
+        if (!json.TryGetProperty(options.PropertyNamingPolicy.ConvertName(member.Name), out var property))
+          continue;
+
+        memberValue = Deserialize(property, memberType, options,
+                                  member.GetCustomAttribute<JsonConverterAttribute>()?.ConverterType);
       }
-    }
 
-    return obj;
-
-    void SetValue(MemberInfo member, object? obj, object? value)
-    {
       switch (member)
       {
-        case PropertyInfo property: property.SetValue(obj, value); break;
-        case FieldInfo field: field.SetValue(obj, value); break;
+        case PropertyInfo property: property.SetValue(@object, memberValue); break;
+        case FieldInfo field: field.SetValue(@object, memberValue); break;
       }
     }
-    Type GetType(MemberInfo member)
-    {
-      return (member) switch
-      {
-        PropertyInfo property => property.PropertyType,
-        FieldInfo field => field.FieldType,
-        _ => throw new NotImplementedException()
-      };
-    }
+
+    return @object;
   }
-  public override void Write(Utf8JsonWriter writer, dynamic value, JsonSerializerOptions options)
-  {
+  public override void Write(Utf8JsonWriter writer, object value, JsonSerializerOptions options) =>
     throw new NotImplementedException();
+
+  static object Deserialize(JsonElement json, Type returnType, JsonSerializerOptions options,
+                            Type converter = default)
+  {
+    object deserialized;
+    if (converter != default)
+    {
+      var converterInstance = (JsonConverter)Activator.CreateInstance(converter);
+
+      var reader = new Utf8JsonReader(Encoding.UTF8.GetBytes(json.GetRawText()));
+      reader.Read();
+
+      deserialized = converterInstance.Read(ref reader, returnType, options);
+    }
+    else
+    {
+      deserialized = json.Deserialize(returnType, options);
+    }
+
+    return deserialized;
   }
 }
