@@ -28,7 +28,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <NoWarn>CS8632</NoWarn>
+    <NoWarn>CS8509, CS8632</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
