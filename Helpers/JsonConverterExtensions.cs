@@ -28,7 +28,7 @@ static class JsonConverterExtensions
     var cast = Expression.TypeAs(call, typeof(object));
 
     var @delegate = Expression.Lambda<ReadDelegate>(cast, parameters);
-    
+
     return @delegate.Compile()(ref reader, type, options);
   }
 }
