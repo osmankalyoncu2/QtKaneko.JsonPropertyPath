@@ -53,27 +53,44 @@ public class JsonPropertyPathContainingConverter : JsonConverter<object>
       {
         var matches = JsonPath.Parse(attribute.Path).Evaluate(json).Matches;
 
-        if (matches.Count == 1)
-        {
-          memberValue = Deserialize(matches[0].Value, memberType, options,
-                                    member.GetCustomAttribute<JsonConverterAttribute>()?.ConverterType);
-        }
-        else if (matches.Count > 1)
-        {
-          if (!memberType.TryGetEnumerableElementType(out var elementType))
-            throw new ArgumentOutOfRangeException(member.Name,
-                                                  $"JsonPath have matched multiple elements, " +
-                                                  $"but {member.DeclaringType}.{member.Name} can contain only one.");
+        var mergeMode = attribute.MergeMode;
+        if (mergeMode == JsonPropertyPathAttribute.MergeModes.Auto)
+          mergeMode = matches.All(m => m.Location.Source.EndsWith(matches[0].Location.Source.Split('/').Last()))
+                      ? JsonPropertyPathAttribute.MergeModes.Array
+                      : JsonPropertyPathAttribute.MergeModes.Class;
 
-          memberValue = Array.CreateInstance(elementType, matches.Count);
-          for (int matchIndex = 0; matchIndex < matches.Count; ++matchIndex)
-          {
-            var element = Deserialize(matches[matchIndex].Value, memberType, options,
-                                      member.GetCustomAttribute<JsonConverterAttribute>()?.ConverterType);
-
-            memberValue.SetValue(element, matchIndex);
-          }
+        var matchesObjectStream = new MemoryStream();
+        var matchesObjectWriter = new Utf8JsonWriter(matchesObjectStream);
+        switch (mergeMode)
+        {
+          case JsonPropertyPathAttribute.MergeModes.Array:
+            {
+              matchesObjectWriter.WriteStartArray();
+              foreach (var match in matches)
+              {
+                match.Value.WriteTo(matchesObjectWriter);
+              }
+              matchesObjectWriter.WriteEndArray();
+              break;
+            }
+            case JsonPropertyPathAttribute.MergeModes.Class:
+            {
+              matchesObjectWriter.WriteStartObject();
+              foreach (var match in matches)
+              {
+                matchesObjectWriter.WritePropertyName(match.Location.Source.Split('/').Last());
+                match.Value.WriteTo(matchesObjectWriter);
+              }
+              matchesObjectWriter.WriteEndObject();
+              break;
+            }
         }
+        matchesObjectWriter.Flush();
+        var matchesObjectReader = new Utf8JsonReader(matchesObjectStream.ToArray());
+        var matchesObject = JsonElement.ParseValue(ref matchesObjectReader);
+
+        memberValue = Deserialize(matchesObject, memberType, options,
+                                  member.GetCustomAttribute<JsonConverterAttribute>()?.ConverterType);
       }
       else
       {

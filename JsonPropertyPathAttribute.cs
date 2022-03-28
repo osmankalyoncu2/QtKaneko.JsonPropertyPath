@@ -14,10 +14,19 @@ namespace QtKaneko.JsonPropertyPath;
 [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = false)]
 public class JsonPropertyPathAttribute : JsonAttribute
 {
-  public readonly string Path;
+  public enum MergeModes
+  {
+    Auto,
+    Class,
+    Array
+  }
 
-  public JsonPropertyPathAttribute(string path)
+  public string Path { get; }
+  public MergeModes MergeMode { get; }
+
+  public JsonPropertyPathAttribute(string path, MergeModes mergeMode = MergeModes.Auto)
   {
     Path = path;
+    MergeMode = mergeMode;
   }
 }
