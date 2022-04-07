@@ -5,16 +5,29 @@ using QtKaneko.JsonPropertyPath;
 
 // Example JSON:
 // {
-//   "obj1": {
-//     "obj2": {
-//       "testInt": 1
+//   "firstName": "John",
+//   "lastName": "doe",
+//   "age": 26,
+//   "address": {
+//     "streetAddress": "naist street",
+//     "city": "Nara",
+//     "postalCode": "630-0192"
+//   },
+//   "phoneNumbers": [
+//     {
+//       "type": "iPhone",
+//       "number": "0123-4567-8888"
+//     },
+//     {
+//       "type": "home",
+//       "number": "0123-4567-8910"
 //     }
-//   }
+//   ]
 // }
-class Test
+class Person
 {
-  [JsonPropertyPath("$..testInt")]
-  public int TestInt { get; set; } // This property will be mapped to testInt from JSON
+  [JsonPropertyPath("$..streetAddress")]
+  public string StreetAddress { get; set; } // This property will be mapped to streetAddress from JSON
 }
 ```
 
@@ -32,21 +45,77 @@ var options = new JsonSerializerOptions()
 
 ## Features:
 - You can map multiple JSON properties to .NET one:
+
+If JSON property names are the same, they will be merged into array before deserialization:
 ```cs
 // Example JSON:
 // {
-//   "obj1": {
-//     "obj2": {
-//       "testInt": 1
+//   "firstName": "John",
+//   "lastName": "doe",
+//   "age": 26,
+//   "address": {
+//     "streetAddress": "naist street",
+//     "city": "Nara",
+//     "postalCode": "630-0192"
+//   },
+//   "phoneNumbers": [
+//     {
+//       "type": "iPhone",
+//       "number": "0123-4567-8888"
 //     },
-//     "obj3": {
-//       "testInt": 2
+//     {
+//       "type": "home",
+//       "number": "0123-4567-8910"
+//     }
+//   ]
+// }
+class Person
+{
+  [JsonPropertyPath("$..number")]
+  public string[] PhoneNumbers { get; set; } // This property will be mapped to all number's from JSON
+}
+```
+
+If JSON property names are not the same, they will be merged into object before deserialization:
+```cs
+// Example JSON:
+// {
+//   "glossary": {
+//     "title": "example glossary",
+//     "GlossDiv": {
+//       "title": "S",
+//       "GlossList": {
+//         "GlossEntry": {
+//           "ID": "SGML",
+//           "SortAs": "SGML",
+//           "GlossTerm": "Standard Generalized Markup Language",
+//           "Acronym": "SGML",
+//           "Abbrev": "ISO 8879:1986",
+//           "GlossDef": {
+//             "para": "A meta-markup language, used to create markup languages such as DocBook.",
+//             "GlossSeeAlso": [
+//               "GML",
+//               "XML"
+//             ]
+//           },
+//           "GlossSee": "markup"
+//         }
+//       }
 //     }
 //   }
 // }
-class Test
+class GlossEntry
 {
-  [JsonPropertyPath("$..testInt")]
-  public int[] TestInt { get; set; } // This property will be mapped to all testInt's from JSON
+  public string ID { get; set; }
+  public string GlossTerm { get; set; }
+}
+class Glossary
+{
+  [JsonPropertyPath("$..[ID,GlossTerm]")]
+  public GlossEntry GlossEntry { get; set; } // This property will be mapped to object created from ID and GlossTerm from JSON
 }
 ```
+
+This behavior can be changed manually with `mergeMode` in `JsonPropertyPathAttribute` (`JsonPropertyPath`) constructor.
+
+- And all of this can be used for nested objects!
