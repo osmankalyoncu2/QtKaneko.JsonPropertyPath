@@ -1,3 +1,5 @@
+# PROJECT MOVED TO [GITLAB](https://gitlab.com/qt-kaneko/QtKaneko.JsonPropertyPath).
+
 ## How to use:
 1. Add JsonPropertyPath attribute to properties or fields you want to map with JSONPath:
 ```cs
