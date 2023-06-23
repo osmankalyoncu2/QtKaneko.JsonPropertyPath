@@ -1,7 +1,6 @@
-# PROJECT MOVED TO [GITLAB](https://gitlab.com/qt-kaneko/QtKaneko.JsonPropertyPath).
-
 ## How to use:
-1. Add JsonPropertyPath attribute to properties or fields you want to map with JSONPath:
+1. Install [NuGet package](https://www.nuget.org/packages/QtKaneko.JsonPropertyPath/).
+2. Add JsonPropertyPath attribute to properties or fields you want to map with JSONPath:
 ```cs
 using QtKaneko.JsonPropertyPath;
 
@@ -33,7 +32,7 @@ class Person
 }
 ```
 
-2. Add JsonPropertyPathContainingConverter to Converters in your JsonSerializerOptions:
+3. Add JsonPropertyPathContainingConverter to Converters in your JsonSerializerOptions:
 ```cs
 using QtKaneko.JsonPropertyPath;
 
@@ -118,6 +117,8 @@ class Glossary
 }
 ```
 
-This behavior can be changed manually with `mergeMode` in `JsonPropertyPathAttribute` (`JsonPropertyPath`) constructor.
+This behavior can be changed manually with `mergeMode` in `JsonPropertyPathAttribute` (`JsonPropertyPath` argument) constructor.
+
+> You can experiment with JSONPath at https://json-everything.net/json-path/
 
 - And all of this can be used for nested objects!

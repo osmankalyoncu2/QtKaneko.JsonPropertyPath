@@ -1,43 +1,33 @@
-<!--
-  This file is part of QtKaneko.JsonPropertyPath.
-
-  QtKaneko.JsonPropertyPath is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-  QtKaneko.JsonPropertyPath is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License along with QtKaneko.JsonPropertyPath. If not, see <https://www.gnu.org/licenses/>.
--->
-<!--Copyright 2022 Kaneko Qt-->
-
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net7.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <DebugType>embedded</DebugType>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="JsonPath.Net" Version="0.6.2"/>
+  </ItemGroup>
+
   <PropertyGroup>
-    <Version>3.0.0</Version>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>QtKaneko.JsonPropertyPath</PackageId>
+    <Version>4.0.0</Version>
     <Authors>Kaneko Qt</Authors>
     <Description>Ever wanted to map JSON property to .NET one with JSONPath?</Description>
-    <Copyright>Copyright (c) Kaneko Qt 2022</Copyright>
-    <PackageProjectUrl>https://github.com/qt-kaneko/QtKaneko.JsonPropertyPath</PackageProjectUrl>
+    <Copyright>Copyright © Kaneko Qt 2023</Copyright>
+    <RepositoryUrl>https://github.com/qt-kaneko/QtKaneko.JsonPropertyPath</RepositoryUrl>
+    <PackageIcon>ICON.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <RepositoryUrl>https://github.com/qt-kaneko/QtKaneko.JsonPropertyPath.git</RepositoryUrl>
-    <PackageTags>map json property jsonpath</PackageTags>
-    <PackageReleaseNotes>Added JsonConverter attribute support.</PackageReleaseNotes>
-    <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+    <PackageTags>Map;Json;Property;JSONPath</PackageTags>
+    <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
   </PropertyGroup>
-
-  <PropertyGroup>
-    <NoWarn>CS8509, CS8632</NoWarn>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="JsonPath.Net" Version="0.1.14"/>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="README.md" Pack="true" PackagePath="\"/>
+   <ItemGroup>
+    <None Include="ICON.png" Pack="true" PackagePath=""/>
+    <None Include="README.md" Pack="true" PackagePath=""/>
+    <None Include="LICENSE" Pack="true" PackagePath=""/>
   </ItemGroup>
 
 </Project>

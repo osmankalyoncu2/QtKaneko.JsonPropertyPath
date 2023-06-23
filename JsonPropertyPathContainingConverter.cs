@@ -1,31 +1,21 @@
-﻿// This file is part of QtKaneko.JsonPropertyPath.
-//
-// QtKaneko.JsonPropertyPath is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-//
-// QtKaneko.JsonPropertyPath is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License along with QtKaneko.JsonPropertyPath. If not, see <https://www.gnu.org/licenses/>. 
-// Copyright 2022 Kaneko Qt
-
-using Json.Path;
-
-using QtKaneko.JsonPropertyPath.Helpers;
-
+﻿using System.Diagnostics;
 using System.Reflection;
-using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using QtKaneko.JsonPropertyPath.Extensions;
 
 namespace QtKaneko.JsonPropertyPath;
 
 public class JsonPropertyPathContainingConverter : JsonConverter<object>
 {
-  const BindingFlags _bindingFlags = BindingFlags.Public | BindingFlags.Instance;
+  const BindingFlags _binding = BindingFlags.Public | BindingFlags.Instance;
 
+  [DebuggerStepThrough]
   public override bool CanConvert(Type typeToConvert)
   {
-    var properties = typeToConvert.GetProperties(_bindingFlags);
-    var fields = typeToConvert.GetFields(_bindingFlags);
+    var properties = typeToConvert.GetProperties(_binding);
+    var fields = typeToConvert.GetFields(_binding);
 
     return properties.Any(property => property.IsDefined(typeof(JsonPropertyPathAttribute)))
         || fields.Any(field => field.IsDefined(typeof(JsonPropertyPathAttribute)));
@@ -33,104 +23,114 @@ public class JsonPropertyPathContainingConverter : JsonConverter<object>
 
   public override object Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options)
   {
-    var json = JsonElement.ParseValue(ref reader);
-    var @object = Activator.CreateInstance(type);
+    var json = (JsonObject)JsonNode.Parse(ref reader)!;
+    var result = Activator.CreateInstance(type)!;
 
-    foreach (var member in Enumerable.Concat<MemberInfo>(type.GetProperties(_bindingFlags),
-                                                         type.GetFields(_bindingFlags)))
+    foreach (var property in type.GetProperties(_binding))
     {
-      if (member is FieldInfo && !options.IncludeFields && !member.IsDefined(typeof(JsonIncludeAttribute)))
-        continue;
+      if ((options.IgnoreReadOnlyFields && !property.CanWrite) &&
+          !property.IsDefined(typeof(JsonIncludeAttribute))) continue;
 
-      var memberType = member switch
+      var memberValue = ReadMember(json, property, property.PropertyType, options);
+      if (memberValue != null)
       {
-        PropertyInfo property => property.PropertyType,
-        FieldInfo field => field.FieldType
-      };
+        property.SetValue(result, memberValue);
+      }
+    }
+    foreach (var field in type.GetFields(_binding))
+    {
+      if ((!options.IncludeFields || (options.IgnoreReadOnlyFields && field.IsInitOnly)) &&
+          !field.IsDefined(typeof(JsonIncludeAttribute))) continue;
 
-      dynamic memberValue = default;
-      if (member.GetCustomAttribute<JsonPropertyPathAttribute>() is { } attribute)
+      var memberValue = ReadMember(json, field, field.FieldType, options);
+      if (memberValue != null)
       {
-        var matches = JsonPath.Parse(attribute.Path).Evaluate(json).Matches;
+        field.SetValue(result, memberValue);
+      }
+    }
 
+    return result;
+  }
+  static object? ReadMember(JsonObject json, MemberInfo member, Type memberType, JsonSerializerOptions options)
+  {
+    var memberStream = new MemoryStream();
+    var memberWriter = new Utf8JsonWriter(memberStream);
+    if (member.GetCustomAttribute<JsonPropertyPathAttribute>() is {} attribute)
+    {
+      var matches = attribute.Path.Evaluate(json).Matches!;
+
+      if (matches.Count == 0) return null;
+      else if (matches.Count == 1)
+      {
+        memberWriter.WriteValue(matches[0].Value);
+      }
+      else // matches.Count > 1
+      {
         var mergeMode = attribute.MergeMode;
         if (mergeMode == JsonPropertyPathAttribute.MergeModes.Auto)
-          mergeMode = matches.All(m => m.Location.Source.EndsWith(matches[0].Location.Source.Split('/').Last()))
-                      ? JsonPropertyPathAttribute.MergeModes.Array
-                      : JsonPropertyPathAttribute.MergeModes.Class;
-
-        var matchesObjectStream = new MemoryStream();
-        var matchesObjectWriter = new Utf8JsonWriter(matchesObjectStream);
-        switch (mergeMode)
         {
-          case JsonPropertyPathAttribute.MergeModes.Array:
-            {
-              matchesObjectWriter.WriteStartArray();
-              foreach (var match in matches)
-              {
-                match.Value.WriteTo(matchesObjectWriter);
-              }
-              matchesObjectWriter.WriteEndArray();
-              break;
-            }
-            case JsonPropertyPathAttribute.MergeModes.Class:
-            {
-              matchesObjectWriter.WriteStartObject();
-              foreach (var match in matches)
-              {
-                matchesObjectWriter.WritePropertyName(match.Location.Source.Split('/').Last());
-                match.Value.WriteTo(matchesObjectWriter);
-              }
-              matchesObjectWriter.WriteEndObject();
-              break;
-            }
+          var name = matches[0].GetName();
+          mergeMode = matches.All(match => match.GetName() == name)
+                    ? JsonPropertyPathAttribute.MergeModes.Array
+                    : JsonPropertyPathAttribute.MergeModes.Class;
         }
-        matchesObjectWriter.Flush();
-        var matchesObjectReader = new Utf8JsonReader(matchesObjectStream.ToArray());
-        var matchesObject = JsonElement.ParseValue(ref matchesObjectReader);
 
-        memberValue = Deserialize(matchesObject, memberType, options,
-                                  member.GetCustomAttribute<JsonConverterAttribute>()?.ConverterType);
-      }
-      else
-      {
-        if (!json.TryGetProperty(options.PropertyNamingPolicy.ConvertName(member.Name), out var property))
-          continue;
-
-        memberValue = Deserialize(property, memberType, options,
-                                  member.GetCustomAttribute<JsonConverterAttribute>()?.ConverterType);
-      }
-
-      switch (member)
-      {
-        case PropertyInfo property: property.SetValue(@object, memberValue); break;
-        case FieldInfo field: field.SetValue(@object, memberValue); break;
+        if (mergeMode == JsonPropertyPathAttribute.MergeModes.Array)
+        {
+          memberWriter.WriteStartArray();
+          foreach (var match in matches)
+          {
+            memberWriter.WriteValue(match.Value);
+          }
+          memberWriter.WriteEndArray();
+        }
+        else if (mergeMode == JsonPropertyPathAttribute.MergeModes.Class)
+        {
+          memberWriter.WriteStartObject();
+          foreach (var match in matches)
+          {
+            memberWriter.WritePropertyName(match.GetName());
+            memberWriter.WriteValue(match.Value);
+          }
+          memberWriter.WriteEndObject();
+        }
       }
     }
+    else if (json.TryGetPropertyValue(options.PropertyNamingPolicy?.ConvertName(member.Name) ?? member.Name,
+                                      out var memberJson))
+    {
+      memberWriter.WriteValue(memberJson);
+    }
+    else return null;
+    memberWriter.Flush();
 
-    return @object;
+    var memberSpan = new ReadOnlySpan<byte>(memberStream.GetBuffer(), 0, (int)memberStream.Length);
+
+    #if DEBUG
+      var debugMemberJson = System.Text.Encoding.UTF8.GetString(memberSpan);
+    #endif
+
+    var memberReader = new Utf8JsonReader(memberSpan);
+    memberReader.Read();
+
+    var converter = member.GetCustomAttribute<JsonConverterAttribute>()?.ConverterType is {} converterType
+                  ? (JsonConverter)Activator.CreateInstance(converterType)!
+                  : options.GetConverter(memberType);
+
+    try
+    {
+      var memberValue = converter?.Read(ref memberReader, memberType, options);
+
+      return memberValue;
+    }
+    catch (Exception ex)
+    {
+      throw new JsonException($"Error while parsing '{member.Name}': {ex.Message}", ex);
+    }
   }
-  public override void Write(Utf8JsonWriter writer, object value, JsonSerializerOptions options) =>
-    throw new NotImplementedException();
 
-  static object Deserialize(JsonElement json, Type returnType, JsonSerializerOptions options,
-                            Type converter = default)
+  public override void Write(Utf8JsonWriter writer, object value, JsonSerializerOptions options)
   {
-    object deserialized;
-    if (converter != default)
-    {
-      var converterInstance = (JsonConverter)Activator.CreateInstance(converter);
-
-      var reader = new Utf8JsonReader(Encoding.UTF8.GetBytes(json.GetRawText()));
-      reader.Read();
-
-      deserialized = converterInstance.Read(ref reader, returnType, options);
-    }
-    else
-    {
-      deserialized = json.Deserialize(returnType, options);
-    }
-
-    return deserialized;
+    throw new NotSupportedException();
   }
 }

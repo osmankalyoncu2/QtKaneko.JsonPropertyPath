@@ -1,17 +1,9 @@
-﻿// This file is part of QtKaneko.JsonPropertyPath.
-//
-// QtKaneko.JsonPropertyPath is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-//
-// QtKaneko.JsonPropertyPath is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License along with QtKaneko.JsonPropertyPath. If not, see <https://www.gnu.org/licenses/>.
-// Copyright 2022 Kaneko Qt
-
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
+using Json.Path;
 
 namespace QtKaneko.JsonPropertyPath;
 
-[AttributeUsage(AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Property | AttributeTargets.Field)]
 public class JsonPropertyPathAttribute : JsonAttribute
 {
   public enum MergeModes
@@ -21,12 +13,14 @@ public class JsonPropertyPathAttribute : JsonAttribute
     Array
   }
 
-  public string Path { get; }
-  public MergeModes MergeMode { get; }
+  public readonly JsonPath Path;
+  public readonly MergeModes MergeMode;
 
   public JsonPropertyPathAttribute(string path, MergeModes mergeMode = MergeModes.Auto)
   {
-    Path = path;
+    Path = JsonPath.Parse(path.StartsWith("$") ? path :
+                          path.StartsWith(".") ? $"${path}" // To handle "..something"
+                                               : $"$.{path}");
     MergeMode = mergeMode;
   }
 }
