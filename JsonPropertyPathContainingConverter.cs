@@ -119,7 +119,7 @@ public class JsonPropertyPathContainingConverter : JsonConverter<object>
 
     try
     {
-      var memberValue = converter?.Read(ref memberReader, memberType, options);
+      var memberValue = converter.Read(ref memberReader, memberType, options);
 
       return memberValue;
     }
