@@ -15,7 +15,7 @@ static class JsonConverterExtensions
   public static object? Read(this JsonConverter converter,
                              ref Utf8JsonReader reader, Type type, JsonSerializerOptions options)
   {
-    ref var readDelegate = ref CollectionsMarshal.GetValueRefOrAddDefault(_readDelegateCache, type, out var exists)!;
+    ref var readDelegate = ref CollectionsMarshal.GetValueRefOrAddDefault(_readDelegateCache, converter.GetType(), out var exists)!;
     if (!exists)
     {
       var instance = Expression.Constant(converter);
@@ -27,7 +27,7 @@ static class JsonConverterExtensions
 
       readDelegate = Expression.Lambda<ReadDelegate>(cast, parameters).Compile();
     }
-    
+
     return readDelegate.Invoke(ref reader, type, options);
   }
 }
